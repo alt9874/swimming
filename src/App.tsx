@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Waves, Cloud, Rocket, Trophy, RefreshCcw, Settings, X, Save, Image as ImageIcon, Gauge, Wind, Plus, Trash } from 'lucide-react';
+import { Sparkles, Waves, Cloud, Rocket, Trophy, RefreshCcw, Settings, X, Save, Image as ImageIcon, Gauge, Wind, Plus, Trash, Home, Play } from 'lucide-react';
 
 // --- Constants & Types ---
 
@@ -29,6 +29,7 @@ interface StageSettings {
   sway: number;
   frequency: number; // Spawn probability Factor
   obstacleDefs: ObstacleDef[];
+  bgmUrl?: string; // --- [BGM EDIT POINT] --- Store URL for each stage BGM
 }
 
 interface ActiveObstacle {
@@ -95,12 +96,15 @@ export default function App() {
     return localStorage.getItem('swimToSpace_playerImage') || '';
   });
 
+  const [isLobby, setIsLobby] = useState(true);
+
   const [stageSettings, setStageSettings] = useState<Record<Stage, StageSettings>>(() => {
     const saved = localStorage.getItem('swimToSpace_difficulty');
     if (saved) return JSON.parse(saved);
     return {
       POOL: { 
         resistance: 1.0, sway: 0, frequency: 0.2,
+        bgmUrl: '',
         obstacleDefs: [
           { id: 'p1', name: 'Pool Buoy', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2854/2854737.png', size: 40 },
           { id: 'p2', name: 'Kickboard', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2662/2662282.png', size: 50 },
@@ -108,6 +112,7 @@ export default function App() {
       },
       OCEAN: { 
         resistance: 1.2, sway: 0.5, frequency: 0.3,
+        bgmUrl: '',
         obstacleDefs: [
           { id: 'o1', name: 'Shark', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2042/2042672.png', size: 70 },
           { id: 'o2', name: 'Coral', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2928/2928544.png', size: 50 },
@@ -115,6 +120,7 @@ export default function App() {
       },
       SKY: { 
         resistance: 1.4, sway: 1.5, frequency: 0.4,
+        bgmUrl: '',
         obstacleDefs: [
           { id: 's1', name: 'Bird', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3069/3069172.png', size: 45 },
           { id: 's2', name: 'Plane', imageUrl: 'https://cdn-icons-png.flaticon.com/512/784/784918.png', size: 80 },
@@ -122,6 +128,7 @@ export default function App() {
       },
       SPACE: { 
         resistance: 1.8, sway: 2.5, frequency: 0.5,
+        bgmUrl: '',
         obstacleDefs: [
           { id: 'sp1', name: 'Planet', imageUrl: 'https://cdn-icons-png.flaticon.com/512/1146/1146331.png', size: 90 },
           { id: 'sp2', name: 'Star', imageUrl: 'https://cdn-icons-png.flaticon.com/512/541/541415.png', size: 40 },
@@ -129,6 +136,8 @@ export default function App() {
       },
     };
   });
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const obstacleImageCache = useRef<Map<string, HTMLImageElement>>(new Map());
 
@@ -153,7 +162,9 @@ export default function App() {
     velocity: 0,
     playerY: 0,
     playerX: 0,
+    velocityX: 0,
     targetX: 0,
+    shake: 0,
     particles: [] as Particle[],
     obstacles: [] as ActiveObstacle[],
     width: 0,
@@ -166,6 +177,26 @@ export default function App() {
   const [uiStage, setUiStage] = useState<Stage>('POOL');
   const [distanceRatio, setDistanceRatio] = useState(0);
   const currentBgColor = useRef({ r: 45, g: 212, b: 191 });
+
+  // --- [BGM PLAYBACK LOGIC] ---
+  useEffect(() => {
+    if (isLobby || gameState.isGameOver) {
+      audioRef.current?.pause();
+      return;
+    }
+
+    const currentBgm = stageSettings[uiStage].bgmUrl;
+    if (currentBgm) {
+      if (!audioRef.current) audioRef.current = new Audio();
+      if (audioRef.current.src !== currentBgm) {
+        audioRef.current.src = currentBgm;
+        audioRef.current.loop = true;
+        audioRef.current.play().catch(e => console.log("Audio play blocked", e));
+      }
+    } else {
+      audioRef.current?.pause();
+    }
+  }, [uiStage, isLobby, gameState.isGameOver, stageSettings]);
 
   // Preload player and obstacle images
   useEffect(() => {
@@ -180,7 +211,7 @@ export default function App() {
     }
 
     // Obstacle images
-    Object.values(stageSettings).forEach(stage => {
+    (Object.values(stageSettings) as StageSettings[]).forEach(stage => {
       stage.obstacleDefs.forEach(def => {
         if (!obstacleImageCache.current.has(def.imageUrl)) {
           const img = new Image();
@@ -251,9 +282,18 @@ export default function App() {
       physicsRef.current.velocity += GRAVITY * diff.resistance;
       physicsRef.current.playerY += physicsRef.current.velocity;
 
-      // Horizontal Physics (Following target + Dynamic Sway)
+      // Horizontal Physics (Momentum based)
+      const springK = 0.08;
+      const drag = 0.92;
       const dx = (physicsRef.current.targetX - physicsRef.current.playerX);
-      physicsRef.current.playerX += dx * 0.08; 
+      
+      // Acceleration towards target + Momentum
+      physicsRef.current.velocityX += dx * springK;
+      physicsRef.current.velocityX *= drag;
+      physicsRef.current.playerX += physicsRef.current.velocityX; 
+
+      // Apply shake decay
+      physicsRef.current.shake *= 0.85;
 
       if (!physicsRef.current.isGameOver) {
         const swayForce = Math.sin(Date.now() * 0.0025) * diff.sway;
@@ -304,10 +344,23 @@ export default function App() {
         const distToPlayer = Math.hypot(px - ob.x, py - ob.y);
         
         if (!physicsRef.current.isGameOver && distToPlayer < (ob.size / 2 + 15)) {
-          // Penalty: Knockdown
-          physicsRef.current.velocity += 8;
+          // --- [SFX EDIT POINT] --- 충돌 효과음 (Collision Sound)
+          // const collisionSfx = new Audio('YOUR_SFX_URL');
+          // collisionSfx.play();
+          
+          // Penalty: Vertical Knockdown (튕겨나감 - 하단으로)
+          physicsRef.current.velocity = 12;
+          
+          // Horizontal Repulsion (튕겨나감 - 측면으로)
+          const bounceDir = physicsRef.current.playerX < ob.x ? -1 : 1;
+          physicsRef.current.velocityX = bounceDir * 15;
+          physicsRef.current.playerX += bounceDir * 5; // Immediate separation
+
+          // Trigger Screen Shake
+          physicsRef.current.shake = 12;
+
           // Respawn obstacle slightly away so it doesn't multi-hit
-          ob.y += 100;
+          ob.y += 150;
         }
 
         // Cleanup
@@ -325,8 +378,18 @@ export default function App() {
       currentBgColor.current.r += (targetColor.r - currentBgColor.current.r) * 0.05;
       currentBgColor.current.g += (targetColor.g - currentBgColor.current.g) * 0.05;
       currentBgColor.current.b += (targetColor.b - currentBgColor.current.b) * 0.05;
+
+      ctx.save();
+      // Application of screen shake
+      if (physicsRef.current.shake > 0.5) {
+        ctx.translate(
+          (Math.random() - 0.5) * physicsRef.current.shake,
+          (Math.random() - 0.5) * physicsRef.current.shake
+        );
+      }
+
       ctx.fillStyle = `rgb(${Math.round(currentBgColor.current.r)}, ${Math.round(currentBgColor.current.g)}, ${Math.round(currentBgColor.current.b)})`;
-      ctx.fillRect(0, 0, width, height);
+      ctx.fillRect(-50, -50, width + 100, height + 100); // Slightly larger to cover shake gaps
 
       const gradient = ctx.createLinearGradient(0, 0, 0, height);
       gradient.addColorStop(0, 'rgba(0,0,0,0.15)');
@@ -357,7 +420,10 @@ export default function App() {
       // Draw Player
       ctx.save();
       ctx.translate(physicsRef.current.playerX, physicsRef.current.playerY);
-      const tilt = Math.max(-0.4, Math.min(0.4, (physicsRef.current.velocity * 0.05) + (dx * 0.005)));
+      
+      // Tilt based on velocity + Knockback spin effect
+      const swimTilt = (physicsRef.current.velocity * 0.05) + (physicsRef.current.velocityX * 0.02);
+      const tilt = Math.max(-0.6, Math.min(0.6, swimTilt));
       ctx.rotate(tilt);
 
       // --- [MANUAL IMAGE EDIT POINT] ---
@@ -378,7 +444,8 @@ export default function App() {
         ctx.beginPath(); ctx.moveTo(-16, -2); ctx.lineTo(-24, wave);
         ctx.moveTo(16, -2); ctx.lineTo(24, -wave); ctx.stroke();
       }
-      ctx.restore();
+      ctx.restore(); // Restore from world tilt/transform
+      ctx.restore(); // Restore from shake
 
       animationId = requestAnimationFrame(update);
     };
@@ -392,6 +459,7 @@ export default function App() {
     physicsRef.current.velocity = 0;
     physicsRef.current.playerY = physicsRef.current.height * 0.7;
     physicsRef.current.playerX = physicsRef.current.width / 2;
+    physicsRef.current.velocityX = 0;
     physicsRef.current.targetX = physicsRef.current.width / 2;
     physicsRef.current.particles = initParticles(physicsRef.current.width, physicsRef.current.height);
     physicsRef.current.obstacles = [];
@@ -424,7 +492,7 @@ export default function App() {
   };
 
   const handleThrust = () => {
-    if (isAdminOpen) return;
+    if (isAdminOpen || isLobby) return;
     const currentStage = getStage(physicsRef.current.distance, physicsRef.current.maxDistance);
     const diff = stageSettings[currentStage] || { resistance: 1 };
     physicsRef.current.velocity -= THRUST_STRENGTH / Math.sqrt(diff.resistance);
@@ -489,8 +557,8 @@ export default function App() {
               {uiStage === 'SPACE' && <Rocket className="w-5 h-5 text-indigo-400" />}
               {getStageColors(uiStage).text}
             </div>
-            <button onClick={(e) => { e.stopPropagation(); setIsAdminOpen(true); }} className="p-1 hover:bg-white/10 rounded-lg">
-              <Settings className="w-4 h-4 text-white/40 hover:text-white" />
+            <button onClick={(e) => { e.stopPropagation(); setIsLobby(true); }} className="p-1 hover:bg-white/10 rounded-lg">
+              <Home className="w-4 h-4 text-white/40 hover:text-white" />
             </button>
           </div>
           <div className="flex flex-col items-center gap-0.5 mt-1">
@@ -502,10 +570,25 @@ export default function App() {
         </motion.div>
       </div>
 
+      {/* --- Hidden Admin Trigger (Top Right) --- */}
+      <div className="absolute top-4 right-4 z-[100]">
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            const pw = prompt('관리자 비밀번호를 입력하세요:');
+            if (pw === 'admin123') setIsAdminOpen(true);
+            else if (pw) alert('접근 권한이 없습니다.');
+          }}
+          className="p-2 bg-black/20 backdrop-blur-sm border border-white/5 rounded-full hover:bg-white/10 transition-all opacity-20 hover:opacity-100"
+        >
+          <Settings className="w-4 h-4 text-white" />
+        </button>
+      </div>
+
       <AnimatePresence>
         {isAdminOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-50 overflow-y-auto"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-[110] overflow-y-auto"
             onClick={() => setIsAdminOpen(false)}
           >
             <motion.div initial={{ y: 20, scale: 0.95 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.95 }}
@@ -513,21 +596,21 @@ export default function App() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-8">
-                <h3 className="text-white font-display font-bold text-2xl">ENGINE CONFIG</h3>
+                <h3 className="text-white font-display font-bold text-2xl">엔진 설정 (관리자)</h3>
                 <button onClick={() => setIsAdminOpen(false)} className="text-white/40"><X /></button>
               </div>
 
               <div className="space-y-8 max-h-[60vh] overflow-y-auto pr-4 custom-scrollbar">
                 <div className="space-y-4">
-                  <h4 className="text-teal-400 text-xs font-black uppercase tracking-widest flex items-center gap-2"><ImageIcon className="w-3 h-3" /> Core settings</h4>
+                  <h4 className="text-teal-400 text-xs font-black uppercase tracking-widest flex items-center gap-2"><ImageIcon className="w-3 h-3" /> 기본 설정</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-white/40 text-[9px] font-bold uppercase block">Max Distance</label>
+                      <label className="text-white/40 text-[9px] font-bold uppercase block">총 비행 거리</label>
                       <input type="number" value={adminMaxDist} onChange={e => setAdminMaxDist(e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-mono text-xs" />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-white/40 text-[9px] font-bold uppercase block">Player Image URL</label>
+                      <label className="text-white/40 text-[9px] font-bold uppercase block">캐릭터 이미지 URL</label>
                       <input type="text" value={adminImgUrl} onChange={e => setAdminImgUrl(e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-[10px]" placeholder="https://..." />
                     </div>
@@ -535,14 +618,21 @@ export default function App() {
                 </div>
 
                 <div className="space-y-6">
-                  <h4 className="text-orange-400 text-xs font-black uppercase tracking-widest flex items-center gap-2"><Gauge className="w-3 h-3" /> Stage Physics & Obstacles</h4>
+                  <h4 className="text-orange-400 text-xs font-black uppercase tracking-widest flex items-center gap-2"><Gauge className="w-3 h-3" /> 스테이지 물리 및 방해 요소</h4>
                   {(['POOL', 'OCEAN', 'SKY', 'SPACE'] as Stage[]).map(stage => (
                     <div key={stage} className="bg-white/5 p-4 rounded-2xl border border-white/5 space-y-4">
                       <div className="flex justify-between items-center">
                         <span className="text-white/70 text-[10px] font-black uppercase">{stage}</span>
                         <div className="flex items-center gap-4">
+                           <input 
+                            type="text" 
+                            value={stageSettings[stage].bgmUrl || ''} 
+                            onChange={e => updateDifficulty(stage, 'bgmUrl', e.target.value)}
+                            className="bg-black/40 border border-white/10 rounded px-2 py-0.5 text-[8px] text-teal-400 w-32" 
+                            placeholder="BGM URL (배경음악)"
+                          />
                           <div className="flex flex-col items-end">
-                            <span className="text-[8px] text-white/30 uppercase">Freq</span>
+                            <span className="text-[8px] text-white/30 uppercase">빈도</span>
                             <input type="range" min="0" max="1.0" step="0.05" value={stageSettings[stage].frequency} onChange={e => updateDifficulty(stage, 'frequency', parseFloat(e.target.value))} className="w-20 accent-orange-500 h-1 bg-white/10 rounded-full" />
                           </div>
                         </div>
@@ -550,11 +640,11 @@ export default function App() {
                       
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <div className="flex justify-between text-[8px] text-white/30 uppercase"><span>Resistance</span><span>{stageSettings[stage].resistance}x</span></div>
+                          <div className="flex justify-between text-[8px] text-white/30 uppercase"><span>수영 저항</span><span>{stageSettings[stage].resistance}x</span></div>
                           <input type="range" min="0.5" max="4.0" step="0.1" value={stageSettings[stage].resistance} onChange={e => updateDifficulty(stage, 'resistance', parseFloat(e.target.value))} className="w-full accent-teal-500 h-1 bg-white/10 rounded-full appearance-none" />
                         </div>
                         <div className="space-y-1">
-                          <div className="flex justify-between text-[8px] text-white/30 uppercase"><span>Turbulence</span><span>{stageSettings[stage].sway}px</span></div>
+                          <div className="flex justify-between text-[8px] text-white/30 uppercase"><span>물리적 흔들림</span><span>{stageSettings[stage].sway}px</span></div>
                           <input type="range" min="0" max="15" step="0.5" value={stageSettings[stage].sway} onChange={e => updateDifficulty(stage, 'sway', parseFloat(e.target.value))} className="w-full accent-orange-500 h-1 bg-white/10 rounded-full appearance-none" />
                         </div>
                       </div>
@@ -562,7 +652,7 @@ export default function App() {
                       {/* Obstacle List */}
                       <div className="space-y-3 pt-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-[9px] text-white/30 font-bold uppercase tracking-tight">Obstacles</span>
+                          <span className="text-[9px] text-white/30 font-bold uppercase tracking-tight">방해 요소 목록</span>
                           <button onClick={() => addObstacle(stage)} className="text-teal-400 p-1 hover:bg-teal-400/10 rounded-lg transition-colors"><Plus className="w-3 h-3" /></button>
                         </div>
                         <div className="space-y-2">
@@ -572,7 +662,7 @@ export default function App() {
                                 type="text" 
                                 value={obs.imageUrl} 
                                 onChange={(e) => updateObstacle(stage, obs.id, 'imageUrl', e.target.value)}
-                                placeholder="Image URL"
+                                placeholder="이미지 URL"
                                 className="flex-1 bg-transparent text-white/60 text-[9px] outline-none font-mono"
                               />
                               <input 
@@ -590,7 +680,53 @@ export default function App() {
                   ))}
                 </div>
               </div>
-              <button onClick={saveSettings} className="w-full bg-white text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 mt-8"><Save className="w-5 h-5" /> APPLY CHANGES</button>
+              <button onClick={saveSettings} className="w-full bg-white text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 mt-8"><Save className="w-5 h-5" /> 설정 저장 및 재시작</button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --- Lobby Screen --- */}
+      <AnimatePresence>
+        {isLobby && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-40 flex items-center justify-center p-6"
+          >
+            {/* Background for Lobby */}
+            <div className="absolute inset-0 bg-teal-900/40 backdrop-blur-md" />
+            
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="relative z-10 flex flex-col items-center text-center space-y-8"
+            >
+              <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center animate-bounce">
+                <Rocket className="w-12 h-12 text-teal-400" />
+              </div>
+              <div>
+                <h1 className="text-white text-6xl font-display font-black tracking-tighter uppercase italic">
+                  SWIM TO SPACE
+                </h1>
+                <p className="text-teal-200/40 text-sm tracking-[0.4em] uppercase mt-2">The Ultimate Ascent</p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => { setIsLobby(false); resetGame(); }}
+                  className="bg-white text-black px-12 py-5 rounded-2xl font-black text-xl flex items-center gap-3 transition-all active:scale-95 shadow-xl shadow-white/10"
+                >
+                  <Play className="fill-current w-5 h-5" /> START JOURNEY
+                </button>
+                <button 
+                  onClick={() => setIsAdminOpen(true)}
+                  className="bg-white/5 border border-white/10 text-white/60 px-12 py-4 rounded-2xl font-bold text-sm flex items-center gap-2 hover:bg-white/10 transition-colors"
+                >
+                  <Settings className="w-4 h-4" /> ENGINE CONFIG (ADMIN)
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -598,14 +734,20 @@ export default function App() {
 
       <AnimatePresence>
         {gameState.isGameOver && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center p-6">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 z-[60]">
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white/5 border border-white/10 p-12 rounded-[2.5rem] flex flex-col items-center text-center">
               <div className="w-20 h-20 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mb-8"><Trophy className="w-10 h-10 text-white" /></div>
-              <h2 className="text-white text-5xl font-display font-black mb-4">REACHED THE STARS</h2>
+              <h2 className="text-white text-5xl font-display font-black mb-4 uppercase italic">MISSION COMPLETE</h2>
               <p className="text-white/60 mb-10 max-w-xs text-lg italic">우주 도달 성공! 여행해주셔서 감사합니다.</p>
-              <button onClick={resetGame} className="group flex items-center gap-3 bg-white text-black px-12 py-5 rounded-2xl font-display font-bold text-xl transition-all">
-                <RefreshCcw className="w-6 h-6 group-hover:rotate-180 duration-500" /> DIVE AGAIN
-              </button>
+              
+              <div className="flex gap-4">
+                <button onClick={() => { setIsLobby(true); resetGame(); }} className="flex items-center gap-3 bg-white/10 border border-white/10 text-white px-8 py-5 rounded-2xl font-display font-bold text-lg transition-all active:scale-95 hover:bg-white/20">
+                  <Home className="w-5 h-5" /> HOME
+                </button>
+                <button onClick={resetGame} className="group flex items-center gap-3 bg-white text-black px-12 py-5 rounded-2xl font-display font-black text-xl transition-all active:scale-95 shadow-lg shadow-white/10">
+                  <RefreshCcw className="w-6 h-6 group-hover:rotate-180 duration-500" /> AGAIN
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
