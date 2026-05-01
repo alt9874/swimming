@@ -36,6 +36,9 @@ interface ActiveObstacle {
   id: number;
   x: number;
   y: number;
+  vx: number; // Horizontal velocity for individual bounce
+  vy: number; // Vertical velocity for individual bounce
+  shake: number; // Individual shake intensity
   size: number;
   def: ObstacleDef;
   speed: number;
@@ -96,7 +99,7 @@ export default function App() {
     return localStorage.getItem('swimToSpace_playerImage') || '';
   });
 
-  const [isLobby, setIsLobby] = useState(true);
+  const [isLobby, setIsLobby] = useState(false); // Start immediately
 
   const [stageSettings, setStageSettings] = useState<Record<Stage, StageSettings>>(() => {
     const saved = localStorage.getItem('swimToSpace_difficulty');
@@ -326,6 +329,9 @@ export default function App() {
               id: Date.now() + Math.random(),
               x: Math.random() * (width - 60) + 30,
               y: -100,
+              vx: 0,
+              vy: 0,
+              shake: 0,
               size: def.size,
               def,
               speed: 2 + Math.random() * 2
@@ -335,8 +341,14 @@ export default function App() {
       }
 
       physicsRef.current.obstacles.forEach((ob, index) => {
-        // Movement
-        ob.y += ob.speed + (physicsRef.current.velocity * -0.5);
+        // Apply individual physics (drag and gravity)
+        ob.vx *= 0.95;
+        ob.vy *= 0.95;
+        ob.shake *= 0.8;
+
+        // Basic movement + Individual collision velocity
+        ob.y += (ob.speed + ob.vy) + (physicsRef.current.velocity * -0.5);
+        ob.x += ob.vx;
 
         // Collision detection
         const px = physicsRef.current.playerX;
@@ -348,19 +360,22 @@ export default function App() {
           // const collisionSfx = new Audio('YOUR_SFX_URL');
           // collisionSfx.play();
           
-          // Penalty: Vertical Knockdown (튕겨나감 - 하단으로)
+          // Penalty: Vertical Knockdown (Character)
           physicsRef.current.velocity = 12;
           
-          // Horizontal Repulsion (튕겨나감 - 측면으로)
+          // Horizontal Repulsion (Character)
           const bounceDir = physicsRef.current.playerX < ob.x ? -1 : 1;
           physicsRef.current.velocityX = bounceDir * 15;
-          physicsRef.current.playerX += bounceDir * 5; // Immediate separation
+          physicsRef.current.playerX += bounceDir * 5; 
 
-          // Trigger Screen Shake
-          physicsRef.current.shake = 12;
+          // --- [Obstacle Reaction] ---
+          // Only this obstacle bounces and shakes
+          ob.vx = -bounceDir * 10; // Bounce obstacle away from player
+          ob.vy = -8; // Bounce obstacle upwards (relative to flow)
+          ob.shake = 10;
 
-          // Respawn obstacle slightly away so it doesn't multi-hit
-          ob.y += 150;
+          // Global Screen Shake (Optional, kept at 50% for context but individual ob is primary)
+          physicsRef.current.shake = 6;
         }
 
         // Cleanup
@@ -408,13 +423,24 @@ export default function App() {
       // Draw Obstacles
       physicsRef.current.obstacles.forEach(ob => {
         const img = obstacleImageCache.current.get(ob.def.imageUrl);
-        if (img) {
-          ctx.drawImage(img, ob.x - ob.size / 2, ob.y - ob.size / 2, ob.size, ob.size);
-        } else {
-          // Fallback if image not loaded or failed
-          ctx.fillStyle = '#ef4444';
-          ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.size / 2, 0, Math.PI * 2); ctx.fill();
+        ctx.save();
+        
+        // Individual Shake/Reaction translate
+        let ox = ob.x;
+        let oy = ob.y;
+        if (ob.shake > 0.5) {
+          ox += (Math.random() - 0.5) * ob.shake;
+          oy += (Math.random() - 0.5) * ob.shake;
         }
+        ctx.translate(ox, oy);
+
+        if (img) {
+          ctx.drawImage(img, -ob.size / 2, -ob.size / 2, ob.size, ob.size);
+        } else {
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath(); ctx.arc(0, 0, ob.size / 2, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
       });
 
       // Draw Player
