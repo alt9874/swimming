@@ -30,6 +30,7 @@ interface StageSettings {
   frequency: number; // Spawn probability Factor
   obstacleDefs: ObstacleDef[];
   bgmUrl?: string; // --- [BGM EDIT POINT] --- Store URL for each stage BGM
+  characterImageUrl?: string; // --- [CHARACTER EDIT POINT] --- Stage specific character image
 }
 
 interface ActiveObstacle {
@@ -108,6 +109,7 @@ export default function App() {
       POOL: { 
         resistance: 1.0, sway: 0, frequency: 0.2,
         bgmUrl: '',
+        characterImageUrl: '', // --- [CHARACTER EDIT POINT] --- 1단계 수영장 캐릭터
         obstacleDefs: [
           { id: 'p1', name: 'Pool Buoy', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2854/2854737.png', size: 40 },
           { id: 'p2', name: 'Kickboard', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2662/2662282.png', size: 50 },
@@ -116,6 +118,7 @@ export default function App() {
       OCEAN: { 
         resistance: 1.2, sway: 0.5, frequency: 0.3,
         bgmUrl: '',
+        characterImageUrl: '', // --- [CHARACTER EDIT POINT] --- 2단계 바다 캐릭터
         obstacleDefs: [
           { id: 'o1', name: 'Shark', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2042/2042672.png', size: 70 },
           { id: 'o2', name: 'Coral', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2928/2928544.png', size: 50 },
@@ -124,6 +127,7 @@ export default function App() {
       SKY: { 
         resistance: 1.4, sway: 1.5, frequency: 0.4,
         bgmUrl: '',
+        characterImageUrl: '', // --- [CHARACTER EDIT POINT] --- 3단계 하늘 캐릭터
         obstacleDefs: [
           { id: 's1', name: 'Bird', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3069/3069172.png', size: 45 },
           { id: 's2', name: 'Plane', imageUrl: 'https://cdn-icons-png.flaticon.com/512/784/784918.png', size: 80 },
@@ -132,6 +136,7 @@ export default function App() {
       SPACE: { 
         resistance: 1.8, sway: 2.5, frequency: 0.5,
         bgmUrl: '',
+        characterImageUrl: '', // --- [CHARACTER EDIT POINT] --- 4단계 우주 캐릭터
         obstacleDefs: [
           { id: 'sp1', name: 'Planet', imageUrl: 'https://cdn-icons-png.flaticon.com/512/1146/1146331.png', size: 90 },
           { id: 'sp2', name: 'Star', imageUrl: 'https://cdn-icons-png.flaticon.com/512/541/541415.png', size: 40 },
@@ -141,7 +146,7 @@ export default function App() {
   });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
+  const stageCharacterCache = useRef<Map<Stage, HTMLImageElement>>(new Map()); // --- [CHARACTER EDIT POINT] --- Cache for stage characters
   const obstacleImageCache = useRef<Map<string, HTMLImageElement>>(new Map());
 
   const [gameState, setGameState] = useState<GameState>({
@@ -212,6 +217,19 @@ export default function App() {
     } else {
       playerImageRef.current = null;
     }
+
+    // Stage-specific characters preloading
+    (Object.entries(stageSettings) as [Stage, StageSettings][]).forEach(([stage, settings]) => {
+      if (settings.characterImageUrl) {
+        if (!stageCharacterCache.current.has(stage)) {
+          const img = new Image();
+          img.src = settings.characterImageUrl;
+          img.onload = () => stageCharacterCache.current.set(stage, img);
+        }
+      } else {
+        stageCharacterCache.current.delete(stage);
+      }
+    });
 
     // Obstacle images
     (Object.values(stageSettings) as StageSettings[]).forEach(stage => {
@@ -452,9 +470,13 @@ export default function App() {
       const tilt = Math.max(-0.6, Math.min(0.6, swimTilt));
       ctx.rotate(tilt);
 
-      // --- [MANUAL IMAGE EDIT POINT] ---
-      // If you want to hardcode an image source in the code, replace 'playerImageUrl' logic with your URL here.
-      if (playerImageRef.current) {
+      // --- [CHARACTER EDIT POINT] ---
+      // Try stage-specific character first, then global image, then default draw
+      const stageChar = stageCharacterCache.current.get(currentStage);
+      if (stageChar) {
+        const size = 64;
+        ctx.drawImage(stageChar, -size/2, -size/2, size, size);
+      } else if (playerImageRef.current) {
         const size = 64;
         ctx.drawImage(playerImageRef.current, -size/2, -size/2, size, size);
       } else {
@@ -650,10 +672,19 @@ export default function App() {
                       <div className="flex justify-between items-center">
                         <span className="text-white/70 text-[10px] font-black uppercase">{stage}</span>
                         <div className="flex items-center gap-4">
+                           <div className="flex flex-col items-start">
+                             <input 
+                              type="text" 
+                              value={stageSettings[stage].characterImageUrl || ''} 
+                              onChange={e => updateDifficulty(stage, 'characterImageUrl', e.target.value as any)}
+                              className="bg-black/40 border border-white/10 rounded px-2 py-0.5 text-[8px] text-orange-400 w-32" 
+                              placeholder="캐릭터 이미지 (Stage Char)"
+                            />
+                           </div>
                            <input 
                             type="text" 
                             value={stageSettings[stage].bgmUrl || ''} 
-                            onChange={e => updateDifficulty(stage, 'bgmUrl', e.target.value)}
+                            onChange={e => updateDifficulty(stage, 'bgmUrl', e.target.value as any)}
                             className="bg-black/40 border border-white/10 rounded px-2 py-0.5 text-[8px] text-teal-400 w-32" 
                             placeholder="BGM URL (배경음악)"
                           />
