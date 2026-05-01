@@ -9,6 +9,8 @@ import { Sparkles, Waves, Cloud, Rocket, Trophy, RefreshCcw, Settings, X, Save, 
 
 // --- Constants & Types ---
 
+// --- [DISTANCE CONFIG POINT] --- 
+// 게임의 총 거리는 여기 DEFAULT_MAX_DISTANCE 또는 관리자 페이지에서 설정할 수 있습니다.
 const DEFAULT_MAX_DISTANCE = 10000;
 const THRUST_STRENGTH = 6;
 const GRAVITY = 0.15;
@@ -172,6 +174,7 @@ export default function App() {
     playerX: 0,
     velocityX: 0,
     targetX: 0,
+    targetY: 0, // --- [NEW] Vertical target
     shake: 0,
     particles: [] as Particle[],
     obstacles: [] as ActiveObstacle[],
@@ -280,6 +283,7 @@ export default function App() {
         physicsRef.current.width = width;
         physicsRef.current.height = height;
         physicsRef.current.playerY = height * 0.7;
+        physicsRef.current.targetY = height * 0.7; // Init targetY
         physicsRef.current.playerX = width / 2;
         physicsRef.current.targetX = width / 2;
         physicsRef.current.particles = initParticles(width, height);
@@ -300,7 +304,13 @@ export default function App() {
       }
 
       // Vertical Physics
+      const springKY = 0.05;
+      const dy = (physicsRef.current.targetY - physicsRef.current.playerY);
+      
+      // Combine gravity/thrust with a pull towards targetY
+      physicsRef.current.velocity += dy * springKY;
       physicsRef.current.velocity += GRAVITY * diff.resistance;
+      physicsRef.current.velocity *= 0.95; // Vertical damping
       physicsRef.current.playerY += physicsRef.current.velocity;
 
       // Horizontal Physics (Momentum based)
@@ -506,6 +516,7 @@ export default function App() {
     physicsRef.current.distance = 0;
     physicsRef.current.velocity = 0;
     physicsRef.current.playerY = physicsRef.current.height * 0.7;
+    physicsRef.current.targetY = physicsRef.current.height * 0.7;
     physicsRef.current.playerX = physicsRef.current.width / 2;
     physicsRef.current.velocityX = 0;
     physicsRef.current.targetX = physicsRef.current.width / 2;
@@ -531,11 +542,12 @@ export default function App() {
     resetGame();
   };
 
-  const handlePointer = (clientX: number) => {
+  const handlePointer = (clientX: number, clientY: number) => {
     if (isAdminOpen) return;
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       physicsRef.current.targetX = clientX - rect.left;
+      physicsRef.current.targetY = clientY - rect.top;
     }
   };
 
@@ -586,9 +598,9 @@ export default function App() {
       ref={containerRef}
       className="relative w-full h-screen overflow-hidden bg-black font-sans select-none touch-none cursor-crosshair"
       onMouseDown={handleThrust}
-      onMouseMove={(e) => handlePointer(e.clientX)}
-      onTouchStart={(e) => { e.preventDefault(); handleThrust(); handlePointer(e.touches[0].clientX); }}
-      onTouchMove={(e) => { e.preventDefault(); handlePointer(e.touches[0].clientX); }}
+      onMouseMove={(e) => handlePointer(e.clientX, e.clientY)}
+      onTouchStart={(e) => { e.preventDefault(); handleThrust(); handlePointer(e.touches[0].clientX, e.touches[0].clientY); }}
+      onTouchMove={(e) => { e.preventDefault(); handlePointer(e.touches[0].clientX, e.touches[0].clientY); }}
     >
       <canvas ref={canvasRef} className="block w-full h-full" />
 
