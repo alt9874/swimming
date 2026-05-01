@@ -17,6 +17,19 @@ const GRAVITY = 0.15;
 const MAX_VELOCITY = 15;
 const PARTICLE_COUNT = 30;
 
+// --- [RECOMMENDED URL HELPER] ---
+// GitHub의 raw 주소는 로딩이 느릴 수 있습니다. 이 함수는 자동으로 가장 빠른 CDN(jsDelivr)으로 변환해줍니다.
+const resolveUrl = (url: string) => {
+  if (!url) return '';
+  if (url.includes('raw.githubusercontent.com')) {
+    return url
+      .replace('raw.githubusercontent.com', 'cdn.jsdelivr.net/gh')
+      .replace('/main/', '@main/')
+      .replace('/master/', '@master/');
+  }
+  return url;
+};
+
 type Stage = 'POOL' | 'OCEAN' | 'SKY' | 'SPACE';
 
 interface ObstacleDef {
@@ -226,7 +239,7 @@ export default function App() {
       if (settings.characterImageUrl) {
         if (!stageCharacterCache.current.has(stage)) {
           const img = new Image();
-          img.src = settings.characterImageUrl;
+          img.src = resolveUrl(settings.characterImageUrl);
           img.onload = () => stageCharacterCache.current.set(stage, img);
         }
       } else {
@@ -237,9 +250,10 @@ export default function App() {
     // Obstacle images
     (Object.values(stageSettings) as StageSettings[]).forEach(stage => {
       stage.obstacleDefs.forEach(def => {
-        if (!obstacleImageCache.current.has(def.imageUrl)) {
+        const url = resolveUrl(def.imageUrl);
+        if (url && !obstacleImageCache.current.has(def.imageUrl)) {
           const img = new Image();
-          img.src = def.imageUrl;
+          img.src = url;
           img.onload = () => obstacleImageCache.current.set(def.imageUrl, img);
         }
       });
@@ -770,21 +784,20 @@ export default function App() {
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="relative z-10 flex flex-col items-center text-center space-y-8"
+              className="relative z-10 flex flex-col items-center justify-center text-center space-y-6"
             >
               <div>
-                <h1 className="text-white text-6xl font-display font-black tracking-tighter uppercase italic">
+                <h1 className="text-white text-3xl font-display font-black tracking-widest uppercase italic">
                   SWIM TO SPACE
                 </h1>
-                <p className="text-teal-200/40 text-sm tracking-[0.4em] uppercase mt-2">The Ultimate Ascent</p>
               </div>
 
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col items-center">
                 <button 
                   onClick={() => { setIsLobby(false); resetGame(); }}
-                  className="bg-white text-black px-12 py-5 rounded-2xl font-black text-xl flex items-center gap-3 transition-all active:scale-95 shadow-xl shadow-white/10"
+                  className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-8 py-2.5 rounded-full font-bold text-xs flex items-center justify-center transition-all active:scale-95 hover:bg-white/20"
                 >
-                  <Play className="fill-current w-5 h-5" /> START JOURNEY
+                  START
                 </button>
               </div>
             </motion.div>
