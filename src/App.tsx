@@ -760,9 +760,6 @@ export default function App() {
               animate={{ scale: 1, opacity: 1 }}
               className="relative z-10 flex flex-col items-center text-center space-y-8"
             >
-              <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center animate-bounce">
-                <Rocket className="w-12 h-12 text-teal-400" />
-              </div>
               <div>
                 <h1 className="text-white text-6xl font-display font-black tracking-tighter uppercase italic">
                   SWIM TO SPACE
@@ -777,12 +774,6 @@ export default function App() {
                 >
                   <Play className="fill-current w-5 h-5" /> START JOURNEY
                 </button>
-                <button 
-                  onClick={() => setIsAdminOpen(true)}
-                  className="bg-white/5 border border-white/10 text-white/60 px-12 py-4 rounded-2xl font-bold text-sm flex items-center gap-2 hover:bg-white/10 transition-colors"
-                >
-                  <Settings className="w-4 h-4" /> ENGINE CONFIG (ADMIN)
-                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -793,7 +784,6 @@ export default function App() {
         {gameState.isGameOver && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 z-[60]">
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white/5 border border-white/10 p-12 rounded-[2.5rem] flex flex-col items-center text-center">
-              <div className="w-20 h-20 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mb-8"><Trophy className="w-10 h-10 text-white" /></div>
               <h2 className="text-white text-5xl font-display font-black mb-4 uppercase italic">MISSION COMPLETE</h2>
               <p className="text-white/60 mb-10 max-w-xs text-lg italic">우주 도달 성공! 여행해주셔서 감사합니다.</p>
               
