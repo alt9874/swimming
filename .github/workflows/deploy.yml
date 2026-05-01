@@ -25,7 +25,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "npm"
 
       - name: Install dependencies
         run: npm install
@@ -34,6 +33,9 @@ jobs:
         run: |
           npm run build
           touch dist/.nojekyll
+
+      - name: List files (Debug)
+        run: ls -R dist
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
