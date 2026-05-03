@@ -858,16 +858,21 @@ export default function App() {
       <AnimatePresence>
         {gameState.isGameOver && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 z-[60]">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white/5 border border-white/10 p-12 rounded-[2.5rem] flex flex-col items-center text-center">
-              <h2 className="text-white text-5xl font-display font-black mb-4 uppercase italic">MISSION COMPLETE</h2>
-              <p className="text-white/60 mb-10 max-w-xs text-lg italic">우주 도달 성공! 여행해주셔서 감사합니다.</p>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white/5 border border-white/10 p-10 rounded-[2.5rem] flex flex-col items-center text-center">
+              <p className="text-white/40 mb-8 max-w-xs text-sm italic tracking-widest uppercase">여행해주셔서 감사합니다</p>
               
-              <div className="flex gap-4">
-                <button onClick={() => { setIsLobby(true); resetGame(); }} className="flex items-center gap-3 bg-white/10 border border-white/10 text-white px-8 py-5 rounded-2xl font-display font-bold text-lg transition-all active:scale-95 hover:bg-white/20">
-                  <Home className="w-5 h-5" /> HOME
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => { setIsLobby(true); resetGame(); }} 
+                  className="flex items-center gap-2 bg-white/5 backdrop-blur-md border border-white/10 text-white/50 px-5 py-2.5 rounded-xl font-display font-bold text-xs transition-all active:scale-95 hover:bg-white/10 hover:text-white"
+                >
+                  <Home className="w-4 h-4" /> HOME
                 </button>
-                <button onClick={resetGame} className="group flex items-center gap-3 bg-white text-black px-12 py-5 rounded-2xl font-display font-black text-xl transition-all active:scale-95 shadow-lg shadow-white/10">
-                  <RefreshCcw className="w-6 h-6 group-hover:rotate-180 duration-500" /> AGAIN
+                <button 
+                  onClick={resetGame} 
+                  className="group flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 text-white/80 px-8 py-2.5 rounded-xl font-display font-black text-xs transition-all active:scale-95 hover:bg-white/20"
+                >
+                  <RefreshCcw className="w-4 h-4 group-hover:rotate-180 duration-500" /> AGAIN
                 </button>
               </div>
             </motion.div>
