@@ -484,11 +484,13 @@ export default function App() {
         ctx.beginPath();
         ctx.arc(ox, oy, rippleRadius, 0, Math.PI * 2);
         
-        // [수정 포인트] 선으로 다시 바꾸고 싶다면 ctx.fillStyle 대신 ctx.strokeStyle를 쓰고 
-        // 하단의 ctx.fill() 대신 ctx.stroke()를 사용하세요.
+        // [수정 포인트] 선만 사용하고 싶다면 ctx.fill()을 지우고 ctx.strokeStyle을 설정하세요.
         ctx.fillStyle = `rgba(255, 255, 255, ${rippleAlpha})`;
         ctx.fill(); 
-        // ctx.lineWidth = 0.5; ctx.stroke(); // 선으로 그릴 때 사용
+        
+        ctx.strokeStyle = `rgba(255, 255, 255, ${rippleAlpha * 0.8})`; // 아주 약한 선 추가
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
 
         if (ob.shake > 0.5) {
           ox += (Math.random() - 0.5) * ob.shake;
@@ -526,11 +528,13 @@ export default function App() {
         ctx.beginPath();
         ctx.arc(px, py, pRippleRadius, 0, Math.PI * 2);
 
-        // [수정 포인트] 선으로 다시 바꾸고 싶다면 ctx.fillStyle 대신 ctx.strokeStyle를 쓰고 
-        // 하단의 ctx.fill() 대신 ctx.stroke()를 사용하세요.
+        // [수정 포인트] 선만 사용하고 싶다면 ctx.fill()을 지우고 ctx.strokeStyle을 설정하세요.
         ctx.fillStyle = `rgba(200, 255, 255, ${pRippleAlpha})`;
         ctx.fill();
-        // ctx.lineWidth = 0.8; ctx.stroke(); // 선으로 그릴 때 사용
+
+        ctx.strokeStyle = `rgba(200, 255, 255, ${pRippleAlpha * 0.8})`; // 아주 약한 선 추가
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
       });
 
       ctx.translate(px, py);
