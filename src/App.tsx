@@ -477,14 +477,14 @@ export default function App() {
         let oy = ob.y + waveY;
 
         // --- Draw Ripple Effect around Obstacle ---
-        const rippleTime = (Date.now() * 0.0008 + ob.id) % 2; 
-        const rippleRadius = (ob.size / 2) + 5 + (rippleTime * 15);
-        const rippleAlpha = Math.max(0, 1 - rippleTime / 2) * 0.15;
+        const rippleTime = (Date.now() * 0.0006 + ob.id) % 2; 
+        const rippleRadius = (ob.size / 2) + 3 + (rippleTime * 8);
+        const rippleAlpha = Math.max(0, 1 - rippleTime / 2) * 0.06;
         
         ctx.beginPath();
         ctx.arc(ox, oy, rippleRadius, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(255, 255, 255, ${rippleAlpha})`;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 0.5;
         ctx.stroke();
 
         if (ob.shake > 0.5) {
@@ -516,14 +516,14 @@ export default function App() {
 
       // --- Draw Multi-layer Ripple Effect for Player ---
       [0.2, 1.0].forEach((offset) => {
-        const pRippleTime = (Date.now() * 0.0007 + offset) % 2;
-        const pRippleRadius = 35 + (pRippleTime * 25);
-        const pRippleAlpha = Math.max(0, 1 - pRippleTime / 2) * 0.2;
+        const pRippleTime = (Date.now() * 0.0005 + offset) % 2;
+        const pRippleRadius = 25 + (pRippleTime * 15);
+        const pRippleAlpha = Math.max(0, 1 - pRippleTime / 2) * 0.08;
         
         ctx.beginPath();
         ctx.arc(px, py, pRippleRadius, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(200, 255, 255, ${pRippleAlpha})`;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 0.8;
         ctx.stroke();
       });
 
