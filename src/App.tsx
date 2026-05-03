@@ -463,13 +463,18 @@ export default function App() {
       ctx.globalAlpha = 1.0;
 
       // Draw Obstacles
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = 'rgba(0,0,0,0.3)';
       physicsRef.current.obstacles.forEach(ob => {
         const img = obstacleImageCache.current.get(ob.def.imageUrl);
         ctx.save();
         
-        // Individual Shake/Reaction translate
-        let ox = ob.x;
-        let oy = ob.y;
+        // Individual Shake/Reaction translate + Floating Wave Effect
+        const waveX = Math.sin(Date.now() * 0.002 + ob.id) * 5;
+        const waveY = Math.cos(Date.now() * 0.0015 + ob.id) * 3;
+        
+        let ox = ob.x + waveX;
+        let oy = ob.y + waveY;
         if (ob.shake > 0.5) {
           ox += (Math.random() - 0.5) * ob.shake;
           oy += (Math.random() - 0.5) * ob.shake;
@@ -484,14 +489,21 @@ export default function App() {
         }
         ctx.restore();
       });
+      ctx.shadowBlur = 0; // Reset shadow for background elements if any
 
       // Draw Player
       ctx.save();
-      ctx.translate(physicsRef.current.playerX, physicsRef.current.playerY);
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
+      
+      // Floating Wave Effect for Player
+      const pWaveX = Math.sin(Date.now() * 0.003) * 8;
+      const pWaveY = Math.cos(Date.now() * 0.002) * 5;
+      ctx.translate(physicsRef.current.playerX + pWaveX, physicsRef.current.playerY + pWaveY);
       
       // Tilt based on velocity + Knockback spin effect
       const swimTilt = (physicsRef.current.velocity * 0.05) + (physicsRef.current.velocityX * 0.02);
-      const tilt = Math.max(-0.6, Math.min(0.6, swimTilt));
+      const tilt = Math.max(-0.6, Math.min(0.6, swimTilt)) + Math.sin(Date.now() * 0.002) * 0.05;
       ctx.rotate(tilt);
 
       // --- [CHARACTER EDIT POINT] ---
@@ -639,7 +651,7 @@ export default function App() {
             <div className="w-48 h-1.5 bg-white/10 rounded-full overflow-hidden">
               <motion.div className="h-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)]" animate={{ width: `${distanceRatio * 100}%` }} transition={{ type: 'spring', bounce: 0, duration: 0.2 }} />
             </div>
-            <div className="text-[10px] text-white/40 font-mono tracking-widest mt-1 uppercase">{Math.floor(distanceRatio * 100)}% Journeyed</div>
+            <div className="text-[10px] text-white/40 font-mono tracking-widest mt-1 uppercase">{Math.floor(distanceRatio * 100)}%</div>
           </div>
         </motion.div>
       </div>
