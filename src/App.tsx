@@ -475,6 +475,18 @@ export default function App() {
         
         let ox = ob.x + waveX;
         let oy = ob.y + waveY;
+
+        // --- Draw Ripple Effect around Obstacle ---
+        const rippleTime = (Date.now() * 0.001 + ob.id) % 2; 
+        const rippleRadius = (ob.size / 2) + 10 + (rippleTime * 40);
+        const rippleAlpha = Math.max(0, 1 - rippleTime / 2) * 0.2;
+        
+        ctx.beginPath();
+        ctx.arc(ox, oy, rippleRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${rippleAlpha})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
         if (ob.shake > 0.5) {
           ox += (Math.random() - 0.5) * ob.shake;
           oy += (Math.random() - 0.5) * ob.shake;
@@ -499,7 +511,23 @@ export default function App() {
       // Floating Wave Effect for Player
       const pWaveX = Math.sin(Date.now() * 0.003) * 8;
       const pWaveY = Math.cos(Date.now() * 0.002) * 5;
-      ctx.translate(physicsRef.current.playerX + pWaveX, physicsRef.current.playerY + pWaveY);
+      const px = physicsRef.current.playerX + pWaveX;
+      const py = physicsRef.current.playerY + pWaveY;
+
+      // --- Draw Multi-layer Ripple Effect for Player ---
+      [0.2, 0.8, 1.4].forEach((offset) => {
+        const pRippleTime = (Date.now() * 0.001 + offset) % 1.8;
+        const pRippleRadius = 40 + (pRippleTime * 60);
+        const pRippleAlpha = Math.max(0, 1 - pRippleTime / 1.8) * 0.3;
+        
+        ctx.beginPath();
+        ctx.arc(px, py, pRippleRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(120, 255, 255, ${pRippleAlpha})`;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      });
+
+      ctx.translate(px, py);
       
       // Tilt based on velocity + Knockback spin effect
       const swimTilt = (physicsRef.current.velocity * 0.05) + (physicsRef.current.velocityX * 0.02);
