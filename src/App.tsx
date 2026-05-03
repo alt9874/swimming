@@ -859,7 +859,7 @@ export default function App() {
         {gameState.isGameOver && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 z-[60]">
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white/5 border border-white/10 p-10 rounded-[2.5rem] flex flex-col items-center text-center">
-              <p className="text-white/40 mb-8 max-w-xs text-sm italic tracking-widest uppercase">여행해주셔서 감사합니다</p>
+              <p className="text-white/40 mb-8 max-w-xs text-[10px] tracking-widest uppercase font-sans">여행해주셔서 감사합니다</p>
               
               <div className="flex gap-3">
                 <button 
